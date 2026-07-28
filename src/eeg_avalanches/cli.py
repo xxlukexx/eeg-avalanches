@@ -23,6 +23,13 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--bin-width-samples", type=int, default=1)
     parser.add_argument("--theory-exponent", type=float, default=1.5)
     parser.add_argument("--min-fit-events", type=int, default=20)
+    parser.add_argument("--kappa-points", type=int, default=10)
+    parser.add_argument("--kappa-xmin", type=float, default=1.0)
+    parser.add_argument(
+        "--parameters-output",
+        type=Path,
+        help="Also write the frozen analysis provenance to this JSON file",
+    )
     parser.add_argument(
         "--summary-only",
         action="store_true",
@@ -56,21 +63,25 @@ def main(argv: list[str] | None = None) -> int:
         bin_width_samples=args.bin_width_samples,
         theory_exponent=args.theory_exponent,
         min_events_for_distribution_fit=args.min_fit_events,
+        kappa_evaluation_points=args.kappa_points,
+        kappa_xmin=args.kappa_xmin,
     )
     result = analyze_avalanches(data, config)
-    payload = json.dumps(
-        result.to_dict(include_distributions=not args.summary_only),
-        indent=2,
-        allow_nan=True,
-    )
     if args.output:
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(payload + "\n", encoding="utf-8")
+        result.write_json(
+            args.output,
+            include_distributions=not args.summary_only,
+        )
     else:
-        print(payload)
+        print(result.to_json(include_distributions=not args.summary_only), end="")
+    if args.parameters_output:
+        args.parameters_output.parent.mkdir(parents=True, exist_ok=True)
+        args.parameters_output.write_text(
+            json.dumps(result.provenance, indent=2, allow_nan=False) + "\n",
+            encoding="utf-8",
+        )
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

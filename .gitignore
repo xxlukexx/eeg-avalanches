@@ -8,4 +8,4 @@ dist/
 *.npy
 *.npz
 *.json
-
+!methods/*.json

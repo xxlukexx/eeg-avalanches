@@ -7,6 +7,7 @@ from eeg_avalanches import (
     AvalancheConfig,
     analyze_avalanches,
     detect_avalanches,
+    kappa_against_theory,
     power_law_exponent,
     threshold_events,
 )
@@ -76,10 +77,24 @@ def test_power_law_requires_minimum_observations() -> None:
     assert np.isfinite(power_law_exponent(np.arange(1, 21), min_observations=20))
 
 
+def test_kappa_parameters_are_configurable() -> None:
+    values = np.arange(1, 41)
+    default = kappa_against_theory(values)
+    changed = kappa_against_theory(
+        values,
+        theory_exponent=1.7,
+        evaluation_points=6,
+        xmin=2.0,
+    )
+
+    assert np.isfinite(default)
+    assert np.isfinite(changed)
+    assert default != changed
+
+
 def test_rejects_nonfinite_input() -> None:
     with pytest.raises(ValueError, match="NaN or infinite"):
         analyze_avalanches(
             np.array([[0.0, np.nan]]),
             AvalancheConfig(sampling_rate=100.0),
         )
-

@@ -133,6 +133,23 @@ eeg-avalanches clean_eeg_epochs.npy \
 Use `--array-key` when an `.npz` archive contains more than one array. Use
 `--summary-only` to omit the raw distributions from JSON.
 
+## Reproducible kappa methods
+
+Every results JSON now includes a complete `provenance` object with the input
+parameters and fixed algorithm choices used for kappa. Save the same record
+separately with `--parameters-output frozen_parameters.json`, then render a
+methods section from either JSON file:
+
+```bash
+eeg-avalanches-methods frozen_parameters.json --output kappa_methods.md
+```
+
+See [`methods/README.md`](methods/README.md) for the workflow,
+[`methods/kappa_default_parameters.json`](methods/kappa_default_parameters.json)
+for the frozen defaults, and
+[`methods/kappa_default_methods.md`](methods/kappa_default_methods.md) for the
+complete default journal-style output.
+
 ## Input expectations
 
 - Data should already be cleaned, channel-aligned, and consistently referenced.
