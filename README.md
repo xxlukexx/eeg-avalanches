@@ -93,28 +93,6 @@ Use `--array-key` when an `.npz` archive contains more than one array. Use
 - Analyze conditions separately unless pooling them is scientifically intended.
 - Units do not matter for z-thresholding, but must be consistent within a call.
 
-## Sensitivity analysis
-
-Avalanche estimates are highly dependent on threshold, temporal binning,
-sampling rate, preprocessing, reference, channel count, and sensor geometry.
-Pre-specify a primary configuration and repeat the analysis over a small,
-declared grid of plausible thresholds and bin widths. Comparisons across
-datasets are most interpretable when these choices and channel coverage are
-harmonized.
-
-The included exponent is a fixed-`xmin` continuous maximum-likelihood estimate.
-The included kappa is a ten-point descriptive comparison against a reference
-power-law distribution. Neither is a formal demonstration of a power law or
-critical dynamics. For confirmatory criticality claims, add explicit model
-comparison and goodness-of-fit procedures.
-
-## Citation and provenance
-
-If you use this software, cite the repository release and the neuronal-avalanche
-methodological literature appropriate to your acquisition and analysis choices.
-The implementation is deliberately dataset-agnostic and contains no participant
-data or study-specific analysis.
-
 ## License
 
 MIT
