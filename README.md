@@ -48,6 +48,12 @@ python -m pip install -e ".[test]"
 pytest
 ```
 
+For EEGLAB input support:
+
+```bash
+python -m pip install -e ".[eeglab]"
+```
+
 ## Python usage
 
 Input may be a two-dimensional `channels x samples` array, a three-dimensional
@@ -70,6 +76,48 @@ config = AvalancheConfig(
 result = analyze_avalanches(epochs, config)
 print(result.to_dict(include_distributions=False))
 ```
+
+## LEAP EEGLAB adapter
+
+The optional adapter reads continuous or epoched EEGLAB `.set` files and
+separates the LEAP eyes-open and eyes-closed resting blocks. In memory, each
+discontinuous block remains a separate channels-by-samples array:
+
+```python
+from eeg_avalanches.leap_eeglab import load_leap_eeglab
+
+dataset = load_leap_eeglab(
+    "clean_resting_state.set",
+    target_rate=200.0,       # optional
+    min_duration_sec=10.0,
+)
+arrays_by_condition = dataset.by_condition()
+```
+
+The grouped lists can be passed directly to `analyze_avalanches`, one condition
+at a time:
+
+```python
+eyes_open = analyze_avalanches(
+    arrays_by_condition["eyes_open"],
+    AvalancheConfig(sampling_rate=200.0),
+)
+```
+
+To convert one file or a directory to `.npy`:
+
+```bash
+leap-eeglab-to-npy clean_resting_state.set converted/ \
+  --target-rate 200 \
+  --min-duration 10
+```
+
+The converter writes one `.npy` per resting block, a JSON metadata sidecar,
+`manifest.csv`, and `errors.json`. It does not concatenate blocks. Use
+`--channels F3,F4,C3,C4` for an explicit channel subset, `--recursive` for
+nested folders, or `--include-invalid` to retain blocks marked invalid.
+Channels containing non-finite values are dropped consistently across the
+recording and listed in the metadata; use `--nonfinite error` to stop instead.
 
 ## Command line
 
@@ -96,4 +144,3 @@ Use `--array-key` when an `.npz` archive contains more than one array. Use
 ## License
 
 MIT
-
