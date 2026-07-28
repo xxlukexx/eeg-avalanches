@@ -75,6 +75,8 @@ config = AvalancheConfig(
 
 result = analyze_avalanches(epochs, config)
 print(result.to_dict(include_distributions=False))
+result.write_json("avalanche_results.json", include_distributions=False)
+print(result.provenance)
 ```
 
 ## LEAP EEGLAB adapter

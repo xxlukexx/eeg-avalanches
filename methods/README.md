@@ -21,6 +21,14 @@ eeg-avalanches clean_eeg.npy \
   --output results.json
 ```
 
+The Python API provides the same record:
+
+```python
+result = analyze_avalanches(data, config)
+result.write_json("results.json", include_distributions=False)
+parameters = result.provenance
+```
+
 To also save the provenance by itself:
 
 ```bash
