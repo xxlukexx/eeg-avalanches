@@ -1,10 +1,10 @@
 {
-  "schema_version": "eeg-avalanches-provenance-1.0",
+  "schema_version": "eeg-avalanches-provenance-2.0",
   "software": {
     "package": "eeg-avalanches",
-    "package_version": "0.3.0",
+    "package_version": "0.4.0",
     "algorithm": "sensor-space absolute-threshold neuronal avalanches",
-    "algorithm_version": "kappa-logpoint-cdf-v1"
+    "algorithm_version": "sensor-avalanche-v2"
   },
   "input": {
     "sampling_rate_hz": 200.0,
@@ -12,14 +12,17 @@
     "n_samples": null,
     "n_segments": null,
     "array_orientation": "channels_by_samples",
-    "segments_treated_as_discontinuous": true
+    "segments_treated_as_discontinuous": true,
+    "channel_names": null,
+    "channel_identity_validation": "count_only"
   },
   "event_detection": {
     "standardization_scope": "per_channel_pooled_across_supplied_segments",
     "standard_deviation_ddof": 0,
     "threshold_type": "two_sided_absolute_z_score",
     "threshold_operator": ">",
-    "threshold_z": 2.5
+    "threshold_z": 2.5,
+    "zero_standard_deviation_channels": "raise_error"
   },
   "temporal_binning": {
     "bin_width_samples": 1,
@@ -31,17 +34,44 @@
     "active_bin_rule": "at_least_one_active_channel",
     "boundary_rule": "empty_bin_or_segment_boundary",
     "size": "number_of_active_channel_bin_pairs",
-    "duration": "number_of_consecutive_active_bins"
+    "duration": "number_of_consecutive_active_bins",
+    "boundary_touching_avalanches": "discard"
+  },
+  "power_law_fit": {
+    "algorithm_version": "discrete-mle-ks-xmin-v1",
+    "distribution": "unbounded_discrete_power_law",
+    "estimator": "exact_mle_hurwitz_zeta",
+    "xmin_selection": "minimum_ks_distance_when_not_fixed",
+    "size_xmin": null,
+    "duration_xmin": null,
+    "minimum_tail_observations": 50
   },
   "kappa": {
     "theory_exponent": 1.5,
-    "minimum_avalanches": 20,
-    "xmin": 1.0,
+    "algorithm_version": "kappa-discrete-full-cdf-v2",
+    "minimum_avalanches": 50,
+    "xmin": 1,
+    "reference_max_size": null,
+    "reference_max_source": "observed_maximum",
     "requested_evaluation_points": 10,
-    "evaluation_points": "log_spaced_xmin_to_observed_max_rounded_to_unique_integers",
+    "evaluation_points": "log_spaced_xmin_to_reference_max_without_rounding",
     "empirical_cdf": "proportion_of_avalanche_sizes_less_than_or_equal_to_each_point",
-    "reference_cdf": "cumulative_normalized_point_mass_x_to_negative_theory_exponent",
-    "formula": "1 + mean(empirical_cdf - reference_cdf)",
+    "reference_cdf": "full_integer_support_truncated_discrete_power_law",
+    "formula": "1 + mean(reference_cdf - empirical_cdf)",
     "insufficient_data_value": null
+  },
+  "branching_ratio": {
+    "algorithm_version": "terminal-ratio-of-sums-v1",
+    "formula": "sum(descendant_counts_including_terminal_zero) / sum(ancestor_counts)",
+    "duration_one_avalanches": "included",
+    "terminal_transition": "included_as_zero_descendants"
+  },
+  "uncertainty": {
+    "method": "nonparametric_avalanche_bootstrap",
+    "iterations": 0,
+    "confidence_level": 0.95,
+    "random_seed": 0,
+    "power_law_xmin_during_bootstrap": "fixed_to_full_sample_estimate",
+    "kappa_reference_max_during_bootstrap": "fixed_to_full_sample_value"
   }
 }

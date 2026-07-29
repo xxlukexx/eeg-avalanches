@@ -9,3 +9,4 @@ dist/
 *.npz
 *.json
 !methods/*.json
+!simulations/*.json

@@ -20,18 +20,29 @@ For each analysis unit (for example, one participant and condition):
    in a bin if it contains at least one threshold-crossing sample.
 4. Define an avalanche as consecutive non-empty bins bounded by an empty bin or
    a segment boundary.
-5. Define avalanche size as active channel-bin pairs and duration as bins.
+5. Discard avalanches touching a segment boundary because they may be censored.
+6. Define avalanche size as active channel-bin pairs and duration as bins.
 
-The default parameters reproduce the originating implementation:
+The corrected default parameters are:
 
 - absolute z threshold: `2.5`
 - bin width: one sample
 - theoretical size exponent for kappa: `1.5`
-- minimum avalanches for distribution summaries: `20`
+- minimum avalanches for distribution summaries: `50`
+- kappa reference: truncated discrete power law over the complete integer
+  support
+- exponent fit: exact discrete MLE with `xmin` selected by minimum KS distance
+- branching ratio: terminal-inclusive ratio of sums
 
 Reported outputs include count, mean size, mean duration, size and duration
 power-law exponents, kappa, branching ratio, and the underlying size and
-duration distributions.
+duration distributions. Versions through `0.3` used biased legacy estimators;
+see [`CHANGELOG.md`](CHANGELOG.md) before comparing old and new outputs.
+
+The corrected branching estimator removes the arithmetic bias caused by
+omitting avalanche termination, but it does not remove bias from spatial
+subsampling or volume conduction. Kappa remains a descriptive CDF comparison,
+not a formal goodness-of-fit test or proof of critical dynamics.
 
 ## Installation
 
@@ -79,6 +90,17 @@ result.write_json("avalanche_results.json", include_distributions=False)
 print(result.provenance)
 ```
 
+Pass channel names whenever possible so identity and order are checked and
+recorded:
+
+```python
+result = analyze_avalanches(
+    epochs,
+    config,
+    channel_names=["F3", "F4", "C3", "C4"],
+)
+```
+
 ## LEAP EEGLAB adapter
 
 The optional adapter reads continuous or epoched EEGLAB `.set` files and
@@ -103,6 +125,7 @@ at a time:
 eyes_open = analyze_avalanches(
     arrays_by_condition["eyes_open"],
     AvalancheConfig(sampling_rate=200.0),
+    channel_names=dataset.segments[0].channel_names,
 )
 ```
 
@@ -120,6 +143,8 @@ The converter writes one `.npy` per resting block, a JSON metadata sidecar,
 nested folders, or `--include-invalid` to retain blocks marked invalid.
 Channels containing non-finite values are dropped consistently across the
 recording and listed in the metadata; use `--nonfinite error` to stop instead.
+Zero-standard-deviation channels are handled the same way and can be made fatal
+with `--flat error`.
 
 ## Command line
 
@@ -134,6 +159,14 @@ eeg-avalanches clean_eeg_epochs.npy \
 
 Use `--array-key` when an `.npz` archive contains more than one array. Use
 `--summary-only` to omit the raw distributions from JSON.
+
+Use `--bootstrap-iterations 500 --random-seed 0` to request reproducible
+avalanche-level confidence intervals. For harmonized group analyses, provide
+`--channel-names` and call `validate_batch_compatibility` on the resulting
+Python objects before combining them. Kappa follows the original convention of
+using each analysis unit's observed maximum by default; for a group comparison,
+prespecify a common support with `--kappa-reference-max-size` so the validator
+can confirm that all units used the same reference CDF.
 
 ## Reproducible kappa methods
 
@@ -152,10 +185,23 @@ for the frozen defaults, and
 [`methods/kappa_default_methods.md`](methods/kappa_default_methods.md) for the
 complete default journal-style output.
 
+## Validation
+
+Deterministic simulations recover a known discrete exponent, kappa reference,
+and critical branching ratio:
+
+```bash
+python simulations/validate_estimators.py
+```
+
+The former calculations remain under `eeg_avalanches.legacy` solely to
+reproduce outputs from versions through `0.3`.
+
 ## Input expectations
 
 - Data should already be cleaned, channel-aligned, and consistently referenced.
 - All segments in one call must contain the same channels in the same order.
+- Flat channels raise an error and must be handled by the cleaning pipeline.
 - Values must be finite; handle missing samples before analysis.
 - Analyze conditions separately unless pooling them is scientifically intended.
 - Units do not matter for z-thresholding, but must be consistent within a call.

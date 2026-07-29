@@ -5,6 +5,7 @@ import numpy as np
 from eeg_avalanches.leap_eeglab import (
     EEGSegment,
     LEAPEEGLABData,
+    _handle_flat_channels,
     _handle_nonfinite_channels,
     parse_rest_intervals,
     save_as_npy,
@@ -50,6 +51,7 @@ def test_groups_arrays_without_joining_boundaries() -> None:
         sampling_rate=100.0,
         channel_names=("FZ", "CZ"),
         dropped_nonfinite_channels=(),
+        dropped_flat_channels=(),
         condition_code="211",
         condition_label="eyes_open",
         source_index=1,
@@ -82,12 +84,29 @@ def test_drops_nonfinite_channels_consistently_across_epochs() -> None:
     assert dropped == ("CZ",)
 
 
+def test_drops_flat_channels_consistently_across_epochs() -> None:
+    data = np.ones((3, 2, 5))
+    data[:, 0, :] = np.arange(5)
+
+    cleaned, retained, dropped = _handle_flat_channels(
+        data,
+        ("FZ", "CZ"),
+        "drop",
+        channel_axis=1,
+    )
+
+    assert cleaned.shape == (3, 1, 5)
+    assert retained == ("FZ",)
+    assert dropped == ("CZ",)
+
+
 def test_saves_array_and_metadata(tmp_path: Path) -> None:
     segment = EEGSegment(
         data_uv=np.arange(12, dtype=np.float32).reshape(2, 6),
         sampling_rate=200.0,
         channel_names=("FZ", "CZ"),
         dropped_nonfinite_channels=(),
+        dropped_flat_channels=(),
         condition_code="212",
         condition_label="eyes_closed",
         source_index=3,

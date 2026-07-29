@@ -53,6 +53,7 @@ class EEGSegment:
     sampling_rate: float
     channel_names: tuple[str, ...]
     dropped_nonfinite_channels: tuple[str, ...]
+    dropped_flat_channels: tuple[str, ...]
     condition_code: str
     condition_label: str
     source_index: int
@@ -216,6 +217,34 @@ def _handle_nonfinite_channels(
     return np.take(data, indices, axis=channel_axis), retained, dropped
 
 
+def _handle_flat_channels(
+    data: np.ndarray,
+    channel_names: tuple[str, ...],
+    policy: str,
+    channel_axis: int = 0,
+) -> tuple[np.ndarray, tuple[str, ...], tuple[str, ...]]:
+    if policy not in {"drop", "error"}:
+        raise ValueError("flat_channel_policy must be 'drop' or 'error'")
+    variability_axes = tuple(axis for axis in range(data.ndim) if axis != channel_axis)
+    channel_sd = np.std(data, axis=variability_axes)
+    retained_mask = channel_sd > 0
+    if np.all(retained_mask):
+        return data, channel_names, ()
+
+    dropped = tuple(
+        name for name, keep in zip(channel_names, retained_mask, strict=True) if not keep
+    )
+    if policy == "error":
+        raise ValueError(f"zero-standard-deviation channels found: {list(dropped)}")
+    retained = tuple(
+        name for name, keep in zip(channel_names, retained_mask, strict=True) if keep
+    )
+    if not retained:
+        raise ValueError("no non-flat channels remain")
+    indices = np.flatnonzero(retained_mask)
+    return np.take(data, indices, axis=channel_axis), retained, dropped
+
+
 def _resample(data: np.ndarray, source_rate: float, target_rate: float | None) -> tuple[np.ndarray, float]:
     if target_rate is None or np.isclose(source_rate, target_rate):
         return data, float(source_rate)
@@ -237,6 +266,7 @@ def _load_continuous(
     target_rate: float | None,
     channels: Iterable[str] | None,
     nonfinite_policy: str,
+    flat_channel_policy: str,
 ) -> LEAPEEGLABData:
     mne = _require_mne()
     raw = mne.io.read_raw_eeglab(path, preload=True, verbose="ERROR")
@@ -251,6 +281,11 @@ def _load_continuous(
         data_uv,
         channel_names,
         nonfinite_policy,
+    )
+    data_uv, channel_names, dropped_flat_channels = _handle_flat_channels(
+        data_uv,
+        channel_names,
+        flat_channel_policy,
     )
 
     segments: list[EEGSegment] = []
@@ -274,6 +309,7 @@ def _load_continuous(
                 sampling_rate=sampling_rate,
                 channel_names=channel_names,
                 dropped_nonfinite_channels=dropped_channels,
+                dropped_flat_channels=dropped_flat_channels,
                 condition_code=interval.condition_code,
                 condition_label=interval.condition_label,
                 source_index=source_index,
@@ -293,6 +329,7 @@ def _load_epoched(
     target_rate: float | None,
     channels: Iterable[str] | None,
     nonfinite_policy: str,
+    flat_channel_policy: str,
 ) -> LEAPEEGLABData:
     mne = _require_mne()
     epochs = mne.io.read_epochs_eeglab(path, verbose="ERROR")
@@ -313,6 +350,12 @@ def _load_epoched(
         nonfinite_policy,
         channel_axis=1,
     )
+    data_uv, channel_names, dropped_flat_channels = _handle_flat_channels(
+        data_uv,
+        channel_names,
+        flat_channel_policy,
+        channel_axis=1,
+    )
     inverse_event_id = {value: _canonical_code(key) for key, value in epochs.event_id.items()}
     segments: list[EEGSegment] = []
 
@@ -329,6 +372,7 @@ def _load_epoched(
                 sampling_rate=float(epochs.info["sfreq"]),
                 channel_names=channel_names,
                 dropped_nonfinite_channels=dropped_channels,
+                dropped_flat_channels=dropped_flat_channels,
                 condition_code=condition_code,
                 condition_label=CONDITION_LABELS[condition_code],
                 source_index=source_index,
@@ -350,6 +394,7 @@ def load_leap_eeglab(
     target_rate: float | None = None,
     channels: Iterable[str] | None = None,
     nonfinite_policy: str = "drop",
+    flat_channel_policy: str = "drop",
 ) -> LEAPEEGLABData:
     """Load and condition-split one LEAP EEGLAB file in memory.
 
@@ -369,6 +414,7 @@ def load_leap_eeglab(
         "target_rate": target_rate,
         "channels": channels,
         "nonfinite_policy": nonfinite_policy,
+        "flat_channel_policy": flat_channel_policy,
     }
     if mode == "continuous":
         return _load_continuous(source, valid_only=valid_only, **kwargs)
@@ -416,6 +462,7 @@ def save_as_npy(dataset: LEAPEEGLABData, output_dir: str | Path) -> list[dict[st
             "sampling_rate": segment.sampling_rate,
             "channel_names": list(segment.channel_names),
             "dropped_nonfinite_channels": list(segment.dropped_nonfinite_channels),
+            "dropped_flat_channels": list(segment.dropped_flat_channels),
             "n_channels": segment.data_uv.shape[0],
             "n_samples": segment.data_uv.shape[1],
             "units": "microvolts",
@@ -427,6 +474,7 @@ def save_as_npy(dataset: LEAPEEGLABData, output_dir: str | Path) -> list[dict[st
                 **metadata,
                 "channel_names": "|".join(segment.channel_names),
                 "dropped_nonfinite_channels": "|".join(segment.dropped_nonfinite_channels),
+                "dropped_flat_channels": "|".join(segment.dropped_flat_channels),
             }
         )
     return rows
@@ -491,6 +539,12 @@ def _parser() -> argparse.ArgumentParser:
         default="drop",
         help="Drop channels containing non-finite samples, or stop with an error",
     )
+    parser.add_argument(
+        "--flat",
+        choices=["drop", "error"],
+        default="drop",
+        help="Drop zero-standard-deviation channels, or stop with an error",
+    )
     return parser
 
 
@@ -507,6 +561,7 @@ def main(argv: list[str] | None = None) -> int:
         target_rate=args.target_rate,
         channels=channels,
         nonfinite_policy=args.nonfinite,
+        flat_channel_policy=args.flat,
     )
     print(json.dumps({"saved_segments": len(rows), "output_dir": str(args.output.resolve())}, indent=2))
     return 0
