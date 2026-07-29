@@ -14,12 +14,38 @@ eeg-avalanches clean_eeg.npy \
   --threshold-z 2.5 \
   --bin-width-samples 1 \
   --theory-exponent 1.5 \
-  --min-fit-events 20 \
+  --min-fit-events 50 \
   --kappa-points 10 \
   --kappa-xmin 1 \
   --summary-only \
   --output results.json
 ```
+
+For percentile confidence intervals, add a prespecified iteration count and
+seed:
+
+```bash
+eeg-avalanches clean_eeg.npy \
+  --sampling-rate 200 \
+  --bootstrap-iterations 500 \
+  --random-seed 0 \
+  --output results.json
+```
+
+For between-participant comparisons, also prespecify a common upper support for
+the kappa reference CDF:
+
+```bash
+eeg-avalanches clean_eeg.npy \
+  --sampling-rate 200 \
+  --kappa-reference-max-size 500 \
+  --output results.json
+```
+
+Choose this value before outcome analysis, for example from protocol constraints
+or a pooled outcome-blind audit. The default observed maximum reproduces the
+usual within-recording kappa convention but can vary with recording length,
+channel count, and event rate.
 
 The Python API provides the same record:
 

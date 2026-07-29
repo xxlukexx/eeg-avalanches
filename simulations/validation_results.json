@@ -1,0 +1,20 @@
+{
+  "random_seed": 20260729,
+  "power_law": {
+    "true_exponent": 1.5,
+    "corrected_estimate": 1.4980382959408682,
+    "legacy_estimate": 1.6610134700927053,
+    "fraction_size_one": 0.38234
+  },
+  "kappa": {
+    "expected_kappa": 1.0,
+    "corrected_kappa": 1.0006359467696655,
+    "maximum_cdf_error": 0.002179469946286816
+  },
+  "branching": {
+    "true_branching_ratio": 1.0,
+    "corrected_ratio_of_sums": 0.9989845162077814,
+    "legacy_mean_nonterminal_ratios": 1.086378970065935,
+    "duration_one_fraction": 0.36794
+  }
+}

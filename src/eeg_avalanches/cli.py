@@ -22,9 +22,29 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--threshold-z", type=float, default=2.5)
     parser.add_argument("--bin-width-samples", type=int, default=1)
     parser.add_argument("--theory-exponent", type=float, default=1.5)
-    parser.add_argument("--min-fit-events", type=int, default=20)
+    parser.add_argument("--min-fit-events", type=int, default=50)
     parser.add_argument("--kappa-points", type=int, default=10)
-    parser.add_argument("--kappa-xmin", type=float, default=1.0)
+    parser.add_argument("--kappa-xmin", type=int, default=1)
+    parser.add_argument("--kappa-reference-max-size", type=int)
+    parser.add_argument("--size-power-law-xmin", type=int)
+    parser.add_argument("--duration-power-law-xmin", type=int)
+    parser.add_argument(
+        "--keep-boundary-avalanches",
+        action="store_true",
+        help="Retain potentially censored avalanches touching a segment boundary",
+    )
+    parser.add_argument(
+        "--channel-names",
+        help="Comma-separated channel names, used to validate and record channel identity",
+    )
+    parser.add_argument(
+        "--bootstrap-iterations",
+        type=int,
+        default=0,
+        help="Avalanche-level bootstrap iterations for confidence intervals",
+    )
+    parser.add_argument("--bootstrap-confidence-level", type=float, default=0.95)
+    parser.add_argument("--random-seed", type=int, default=0)
     parser.add_argument(
         "--parameters-output",
         type=Path,
@@ -65,8 +85,16 @@ def main(argv: list[str] | None = None) -> int:
         min_events_for_distribution_fit=args.min_fit_events,
         kappa_evaluation_points=args.kappa_points,
         kappa_xmin=args.kappa_xmin,
+        kappa_reference_max_size=args.kappa_reference_max_size,
+        size_power_law_xmin=args.size_power_law_xmin,
+        duration_power_law_xmin=args.duration_power_law_xmin,
+        discard_boundary_avalanches=not args.keep_boundary_avalanches,
+        bootstrap_iterations=args.bootstrap_iterations,
+        bootstrap_confidence_level=args.bootstrap_confidence_level,
+        random_seed=args.random_seed,
     )
-    result = analyze_avalanches(data, config)
+    channel_names = args.channel_names.split(",") if args.channel_names else None
+    result = analyze_avalanches(data, config, channel_names=channel_names)
     if args.output:
         result.write_json(
             args.output,

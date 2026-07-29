@@ -62,12 +62,20 @@ def render_kappa_methods(provenance: Mapping[str, object]) -> str:
     requested_points = _number(kappa.get("requested_evaluation_points"))
     package = str(software.get("package"))
     package_version = str(software.get("package_version"))
-    algorithm_version = str(software.get("algorithm_version"))
+    algorithm_version = str(kappa.get("algorithm_version"))
+    reference_max_size = kappa.get("reference_max_size")
+    reference_max_text = (
+        "the maximum observed avalanche size"
+        if reference_max_size is None
+        else f"the prespecified maximum size of {_number(reference_max_size)}"
+    )
 
     if event.get("threshold_operator") != ">":
         raise ValueError("the methods renderer currently supports only a strict '>' threshold")
     if avalanche.get("size") != "number_of_active_channel_bin_pairs":
         raise ValueError("unsupported avalanche size definition")
+    if kappa.get("formula") != "1 + mean(reference_cdf - empirical_cdf)":
+        raise ValueError("unsupported kappa formula")
 
     return "\n".join(
         [
@@ -91,22 +99,25 @@ def render_kappa_methods(provenance: Mapping[str, object]) -> str:
                 "discarded. A time bin was considered active when at least one channel was "
                 "active. An avalanche was defined as a sequence of consecutive active bins "
                 "bounded by an empty bin or by a segment boundary; avalanches were therefore "
-                "not permitted to span discontinuous segments. Avalanche size was the total "
-                "number of active channel-bin pairs in the sequence."
+                "not permitted to span discontinuous segments. Avalanches touching the first "
+                "or last bin of a segment were discarded because their sizes and durations "
+                "were potentially censored. Avalanche size was the total number of active "
+                "channel-bin pairs in the sequence."
             ),
             "",
             (
                 f"The kappa coefficient was calculated when at least {minimum_avalanches} "
                 f"avalanches with size greater than or equal to xmin = {xmin} were available. "
-                f"Up to {requested_points} evaluation points were logarithmically spaced from "
-                "xmin to the maximum observed avalanche size, rounded to the nearest integer, "
-                "and deduplicated. At each retained point, the empirical cumulative distribution "
+                f"A reference probability mass function proportional to x^(-{theory_exponent}) "
+                f"was constructed over every integer size from xmin through {reference_max_text} "
+                "and normalized over that complete support. Its cumulative sum defined the "
+                f"reference CDF. {requested_points} evaluation points were logarithmically "
+                "spaced over the same range without rounding. At each point, the empirical cumulative distribution "
                 "function (CDF) was the proportion of observed avalanche sizes less than or "
-                "equal to that point. The reference CDF was formed by assigning mass proportional "
-                f"to x^(-{theory_exponent}) at the retained evaluation points, normalizing these "
-                "masses to sum to one, and taking their cumulative sum. Kappa was then computed "
+                "equal to that point, and the reference CDF was evaluated from its full integer "
+                "support. Kappa was then computed "
                 "as 1 plus the mean, across retained evaluation points, of the empirical CDF "
-                "minus the reference CDF. Thus, kappa = 1 indicates mean agreement between the "
+                "subtracted from the reference CDF. Thus, kappa = 1 indicates mean agreement between the "
                 "empirical and reference CDFs at the selected points. Kappa was recorded as "
                 "missing when the minimum avalanche count was not met."
             ),
